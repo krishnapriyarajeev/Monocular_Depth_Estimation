@@ -4,6 +4,7 @@ import torch
 import pandas as pd
 import numpy
 import matplotlib.pyplot as plt
+import math
 
 # load the custom training YOLOv5 model
 rf = Roboflow(api_key="LQk9XApDNPy9UBWO6j3l")
@@ -11,12 +12,12 @@ project = rf.workspace().project("miyo")
 model = project.version(4).model
 
 # load the pre-trained MiDaS model
-midas = torch.hub.load('intel-isl/MiDaS', 'DPT_Large')
+midas = torch.hub.load('intel-isl/MiDaS', 'MiDaS_small')
 midas.to('cuda')
 midas.eval()
 
 transforms = torch.hub.load('intel-isl/MiDaS', 'transforms')
-transform = transforms.dpt_transform
+transform = transforms.small_transform
 
 # capture the input (0 for webcam)
 cap = cv2.VideoCapture("input.mp4")
@@ -26,7 +27,7 @@ frame_width = int(cap.get(3))
 frame_height = int(cap.get(4))
 
 # create an object to write the frames to output file
-out = cv2.VideoWriter("output_test.mp4",cv2.VideoWriter_fourcc(*'MP4V'), 30, (frame_width,frame_height))
+out = cv2.VideoWriter("output.mp4",cv2.VideoWriter_fourcc(*'MP4V'), 30, (frame_width,frame_height))
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -80,16 +81,21 @@ while cap.isOpened():
 
         # calculating the distance measure
         inv = (pred[ymed][xmed])*0.001
-        distance = str(round(1/inv,2))
+        d = (round(1/inv,2))
+        
+        # calculating actual distance value
+        a = 1.79
+        b = -1.28
+        distance = str(round(a*d + b,1))
 
         # bounding box
         cv2.rectangle(frame, (x0, y0), (x1, y1), color, 1)
 
         # text box
-        text_size, _ = cv2.getTextSize(label+' dist:'+distance, cv2.FONT_HERSHEY_PLAIN, 1, 1)
+        text_size, _ = cv2.getTextSize(label+' '+distance+'m', cv2.FONT_HERSHEY_PLAIN, 1, 1)
         text_width, text_height = text_size
         cv2.rectangle(frame, (x0, y0), (x0+text_width, y0-text_height-10), color, -1)
-        cv2.putText(frame, label+' dist:'+distance, (x0, y0-10), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(frame, label+' '+distance+'m', (x0, y0-10), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), 1, cv2.LINE_AA)
         
         # display the frame and save it to file
     cv2.imshow("Depth Estimation",frame)
